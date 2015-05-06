@@ -19,16 +19,11 @@ pub struct Tape {
 }
 
 impl Tape {
-
     pub fn new(size: usize) -> Option<Tape> {
-        if size == 0 {
-            return None;
+        if size > 0 {
+            Some(Tape { raw_tape: vec![0; size], pointer: 0 })
         } else {
-            let mut raw_tape = Vec::with_capacity(size);
-            for _ in 0..size {
-                raw_tape.push(0);
-            }
-            Some(Tape { raw_tape: raw_tape, pointer: 0 })
+            None
         }
     }
 
@@ -67,15 +62,14 @@ pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<u8>, Error> {
 
 pub fn eval_bf(code: &[u8], tape: &mut Tape) {
     let mut pc = 0;
-    let code_size = code.len();
 
-    while pc < code_size {
+    while pc < code.len() {
         let cmd = code[pc];
 
         match cmd {
             INC => tape.inc_cell(),
             DEC => tape.dec_cell(),
-            _ => {},
+            _ => { /* not implemented */ },
         }
 
         pc += 1;
@@ -99,7 +93,7 @@ mod test {
     // see libcollections/macros.rs
     macro_rules! tape {
         ( $( $x:expr ),+ ) => (
-            Tape { raw_tape: vec![$($x),*], pointer: 0, }
+            Tape { raw_tape: vec![$($x),+], pointer: 0, }
         );
     }
 
