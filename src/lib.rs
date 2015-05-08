@@ -12,40 +12,55 @@ pub const LOOP_BEG: u8 = 91; // [
 pub const LOOP_END: u8 = 93; // ]
 
 
-#[derive(Debug, PartialEq)]
-pub struct Tape {
-    raw_tape: Vec<i8>,
+#[derive(Debug)]
+pub struct Vm {
+    memory: Vec<i8>,
     pointer: usize,
 }
 
-impl Tape {
-    pub fn new(size: usize) -> Option<Tape> {
+impl Vm {
+    pub fn new(size: usize) -> Option<Vm> {
         if size > 0 {
-            Some(Tape { raw_tape: vec![0; size], pointer: 0 })
+            Some(Vm { memory: vec![0; size], pointer: 0 })
         } else {
             None
         }
     }
 
-    pub fn inc_cell(&mut self) {
+    pub fn eval(&mut self, code: &[u8]) {
+        let mut pc = 0;
+
+        while pc < code.len() {
+            let cmd = code[pc];
+
+            match cmd {
+                INC => self.inc_cell(),
+                DEC => self.dec_cell(),
+                _ => { /* not implemented */ },
+            }
+
+            pc += 1;
+        }
+    }
+
+    fn inc_cell(&mut self) {
         let v = self.get_cell();
         self.put_cell(v.wrapping_add(1));
     }
 
-    pub fn dec_cell(&mut self) {
+    fn dec_cell(&mut self) {
         let v = self.get_cell();
         self.put_cell(v.wrapping_sub(1));
     }
 
-    pub fn get_cell(&self) -> i8 {
-        self.raw_tape[self.pointer]
+    fn get_cell(&self) -> i8 {
+        self.memory[self.pointer]
     }
 
-    pub fn put_cell(&mut self, value: i8) {
-        self.raw_tape[self.pointer] = value;
+    fn put_cell(&mut self, value: i8) {
+        self.memory[self.pointer] = value;
     }
 }
-
 
 pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<u8>, Error> {
     let mut code = vec![];
@@ -58,22 +73,6 @@ pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<u8>, Error> {
         }
     }
     Ok(code)
-}
-
-pub fn eval_bf(code: &[u8], tape: &mut Tape) {
-    let mut pc = 0;
-
-    while pc < code.len() {
-        let cmd = code[pc];
-
-        match cmd {
-            INC => tape.inc_cell(),
-            DEC => tape.dec_cell(),
-            _ => { /* not implemented */ },
-        }
-
-        pc += 1;
-    }
 }
 
 fn is_bf_cmd(byte: u8) -> bool {
@@ -89,14 +88,6 @@ mod test {
 
     use super::*;
 
-    // is this the proper way?
-    // see libcollections/macros.rs
-    macro_rules! tape {
-        ( $( $x:expr ),+ ) => (
-            Tape { raw_tape: vec![$($x),+], pointer: 0, }
-        );
-    }
-
     #[test]
     fn i_can_use_a_string_as_input() {
         let code = read_and_strip_bf_code("+".as_bytes());
@@ -104,15 +95,9 @@ mod test {
     }
 
     #[test]
-    fn test_tape_macro() {
-        let expected = Tape { raw_tape: vec![0], pointer: 0, };
-        assert_eq!(expected, tape![0]);
-    }
-
-    #[test]
     fn test_inc_and_dec() {
-        let mut tape = tape![0];
-        eval_bf("++-".as_bytes(), &mut tape);
-        assert_eq!(tape![1], tape);
+        let mut vm = Vm::new(1).unwrap();
+        vm.eval("++-".as_bytes());
+        assert_eq!(vec![1], vm.memory);
     }
 }
