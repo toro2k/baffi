@@ -100,4 +100,13 @@ mod test {
         vm.eval("++-".as_bytes());
         assert_eq!(vec![1], vm.memory);
     }
+
+    #[test]
+    fn integer_arithmetic_wraps_around() {
+        let mut vm = Vm::new(1).unwrap();
+        let mut code = String::new();
+        for _ in 0..256 { code.push('+'); }
+        vm.eval(code.as_bytes());
+        assert_eq!(0, vm.memory[0]);
+    }
 }
