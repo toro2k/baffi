@@ -18,6 +18,12 @@ pub struct Vm {
     pointer: usize,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Inst {
+    Inc,
+    Dec,
+}
+
 impl Vm {
     pub fn new(size: usize) -> Option<Vm> {
         if size > 0 {
@@ -27,16 +33,15 @@ impl Vm {
         }
     }
 
-    pub fn eval(&mut self, code: &[u8]) {
+    pub fn eval(&mut self, code: &[Inst]) {
         let mut pc = 0;
 
         while pc < code.len() {
-            let cmd = code[pc];
+            let cmd = &code[pc];
 
             match cmd {
-                INC => self.inc_cell(),
-                DEC => self.dec_cell(),
-                _ => { /* not implemented */ },
+                &Inst::Inc => self.inc_cell(),
+                &Inst::Dec => self.dec_cell(),
             }
 
             pc += 1;
@@ -62,24 +67,17 @@ impl Vm {
     }
 }
 
-pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<u8>, Error> {
+pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>, Error> {
     let mut code = vec![];
     for maybe_byte in input.bytes() {
         let byte = try!(maybe_byte);
-        if is_bf_cmd(byte) {
-            code.push(byte);
-        } else {
-            continue;
+        match byte {
+            INC => code.push(Inst::Inc),
+            DEC => code.push(Inst::Dec),
+            _ => continue,
         }
     }
     Ok(code)
-}
-
-fn is_bf_cmd(byte: u8) -> bool {
-    byte == INC || byte == DEC ||
-    byte == GET || byte == PUT ||
-    byte == NEXT || byte == PREV ||
-    byte == LOOP_END || byte == LOOP_BEG
 }
 
 
@@ -91,22 +89,26 @@ mod test {
     #[test]
     fn i_can_use_a_string_as_input() {
         let code = read_and_strip_bf_code("+".as_bytes());
-        assert_eq!(vec![INC], code.unwrap());
+        assert_eq!(vec![Inst::Inc], code.unwrap());
     }
 
     #[test]
     fn test_inc_and_dec() {
         let mut vm = Vm::new(1).unwrap();
-        vm.eval("++-".as_bytes());
+
+        vm.eval(&[Inst::Inc, Inst::Inc, Inst::Dec]);
         assert_eq!(vec![1], vm.memory);
     }
 
     #[test]
     fn integer_arithmetic_wraps_around() {
+        let mut code = vec![];
+        for _ in 0..256 {
+            code.push(Inst::Inc);
+        }
         let mut vm = Vm::new(1).unwrap();
-        let mut code = String::new();
-        for _ in 0..256 { code.push('+'); }
-        vm.eval(code.as_bytes());
+
+        vm.eval(&code);
         assert_eq!(0, vm.memory[0]);
     }
 }
