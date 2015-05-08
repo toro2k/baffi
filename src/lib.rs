@@ -12,25 +12,27 @@ pub const LOOP_BEG: u8 = 91; // [
 pub const LOOP_END: u8 = 93; // ]
 
 
-#[derive(Debug)]
-pub struct Vm {
-    // It is worth wrapping i8 in a newtype?
-    memory: Vec<i8>,
-    pointer: usize,
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Inst {
     Inc,
     Dec,
     Next,
     Prev,
+    // TODO: add Input inst
 }
 
-impl Vm {
-    pub fn new(size: usize) -> Option<Vm> {
+#[derive(Debug)]
+pub struct Vm<In> {
+    // It is worth wrapping i8 in a newtype?
+    memory: Vec<i8>,
+    pointer: usize,
+    input: In,
+}
+
+impl<In: Read> Vm<In> {
+    pub fn new(size: usize, input: In) -> Option<Vm<In>> {
         if size > 0 {
-            Some(Vm { memory: vec![0; size], pointer: 0 })
+            Some(Vm { memory: vec![0; size], pointer: 0, input: input })
         } else {
             None
         }
@@ -64,7 +66,7 @@ impl Vm {
     }
 
     fn next_cell(&mut self) {
-        // if pointer < ?!? {
+        // if pointer < usize MAX? {
             self.pointer += 1;
         // }
     }
@@ -113,7 +115,7 @@ mod test {
 
     #[test]
     fn test_inc_and_dec() {
-        let mut vm = Vm::new(1).unwrap();
+        let mut vm = Vm::new(1, "".as_bytes()).unwrap();
 
         vm.eval(&[Inst::Inc, Inst::Inc, Inst::Dec]);
         assert_eq!(vec![1], vm.memory);
@@ -121,7 +123,7 @@ mod test {
 
     #[test]
     fn test_next_and_prev() {
-        let mut vm = Vm::new(2).unwrap();
+        let mut vm = Vm::new(2, "".as_bytes()).unwrap();
 
         vm.eval(&[Inst::Next, Inst::Inc, Inst::Prev, Inst::Inc]);
         assert_eq!(vec![1, 1], vm.memory);
@@ -133,7 +135,7 @@ mod test {
         for _ in 0..256 {
             code.push(Inst::Inc);
         }
-        let mut vm = Vm::new(1).unwrap();
+        let mut vm = Vm::new(1, "".as_bytes()).unwrap();
 
         vm.eval(&code);
         assert_eq!(0, vm.memory[0]);
