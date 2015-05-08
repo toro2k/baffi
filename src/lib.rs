@@ -14,6 +14,7 @@ pub const LOOP_END: u8 = 93; // ]
 
 #[derive(Debug)]
 pub struct Vm {
+    // It is worth wrapping i8 in a newtype?
     memory: Vec<i8>,
     pointer: usize,
 }
@@ -22,6 +23,8 @@ pub struct Vm {
 pub enum Inst {
     Inc,
     Dec,
+    Next,
+    Prev,
 }
 
 impl Vm {
@@ -42,6 +45,8 @@ impl Vm {
             match cmd {
                 &Inst::Inc => self.inc_cell(),
                 &Inst::Dec => self.dec_cell(),
+                &Inst::Next => self.next_cell(),
+                &Inst::Prev => self.prev_cell(),
             }
 
             pc += 1;
@@ -56,6 +61,18 @@ impl Vm {
     fn dec_cell(&mut self) {
         let v = self.get_cell();
         self.put_cell(v.wrapping_sub(1));
+    }
+
+    fn next_cell(&mut self) {
+        // if pointer < ?!? {
+            self.pointer += 1;
+        // }
+    }
+
+    fn prev_cell(&mut self) {
+        if self.pointer > 0 {
+            self.pointer -= 1;
+        }
     }
 
     fn get_cell(&self) -> i8 {
@@ -74,6 +91,8 @@ pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>, Error> {
         match byte {
             INC => code.push(Inst::Inc),
             DEC => code.push(Inst::Dec),
+            NEXT => code.push(Inst::Next),
+            PREV => code.push(Inst::Prev),
             _ => continue,
         }
     }
@@ -98,6 +117,14 @@ mod test {
 
         vm.eval(&[Inst::Inc, Inst::Inc, Inst::Dec]);
         assert_eq!(vec![1], vm.memory);
+    }
+
+    #[test]
+    fn test_next_and_prev() {
+        let mut vm = Vm::new(2).unwrap();
+
+        vm.eval(&[Inst::Next, Inst::Inc, Inst::Prev, Inst::Inc]);
+        assert_eq!(vec![1, 1], vm.memory);
     }
 
     #[test]
