@@ -1,15 +1,15 @@
 use std::io::Read;
-use std::io::Error;
+use std::io::Result;
 
 
-pub const INC: u8 = 43; // +
-pub const GET: u8 = 44; // ,
-pub const DEC: u8 = 45; // -
-pub const PUT: u8 = 46; // .
-pub const PREV: u8 = 60; // <
-pub const NEXT: u8 = 62; // >
-pub const LOOP_BEG: u8 = 91; // [
-pub const LOOP_END: u8 = 93; // ]
+const INC: u8 = 43; // +
+const INPUT: u8 = 44; // ,
+const DEC: u8 = 45; // -
+// const OUTPUT: u8 = 46; // .
+const PREV: u8 = 60; // <
+const NEXT: u8 = 62; // >
+// const LOOP_BEG: u8 = 91; // [
+// const LOOP_END: u8 = 93; // ]
 
 
 #[derive(Debug, PartialEq)]
@@ -18,12 +18,11 @@ pub enum Inst {
     Dec,
     Next,
     Prev,
-    // TODO: add Input inst
+    Input,
 }
 
 #[derive(Debug)]
 pub struct Vm<In> {
-    // It is worth wrapping i8 in a newtype?
     memory: Vec<i8>,
     pointer: usize,
     input: In,
@@ -49,6 +48,7 @@ impl<In: Read> Vm<In> {
                 &Inst::Dec => self.dec_cell(),
                 &Inst::Next => self.next_cell(),
                 &Inst::Prev => self.prev_cell(),
+                &Inst::Input => self.read_cell(),
             }
 
             pc += 1;
@@ -66,15 +66,24 @@ impl<In: Read> Vm<In> {
     }
 
     fn next_cell(&mut self) {
-        // if pointer < usize MAX? {
+        // TODO: need a better condition
+        if self.pointer < (self.memory.len() - 1) {
             self.pointer += 1;
-        // }
+        }
     }
 
     fn prev_cell(&mut self) {
         if self.pointer > 0 {
             self.pointer -= 1;
         }
+    }
+
+    fn read_cell(&mut self) {
+        // TODO: there is no better/simpler way?
+        // TODO: where the literal `[0]` is allocated here?
+        let i: &mut [u8] = &mut [0];
+        self.input.read(&mut i[0..1]).unwrap();
+        self.put_cell(i[0] as i8);
     }
 
     fn get_cell(&self) -> i8 {
@@ -86,7 +95,7 @@ impl<In: Read> Vm<In> {
     }
 }
 
-pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>, Error> {
+pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>> {
     let mut code = vec![];
     for maybe_byte in input.bytes() {
         let byte = try!(maybe_byte);
@@ -95,6 +104,7 @@ pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>, Error> {
             DEC => code.push(Inst::Dec),
             NEXT => code.push(Inst::Next),
             PREV => code.push(Inst::Prev),
+            INPUT => code.push(Inst::Input),
             _ => continue,
         }
     }
@@ -106,18 +116,23 @@ pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>, Error> {
 mod test {
 
     use super::*;
+    use super::Inst::{Inc,Dec,Next,Prev,Input};
+
+    // TODO: define assert_vm_memory_eq!
+    // TODO: define make_vm(usize) -> Vm<?!?>: empty input from string
+    // TODO: define make_vm_with_input<In: Read>(usize, In) -> Vm<In>
 
     #[test]
     fn i_can_use_a_string_as_input() {
         let code = read_and_strip_bf_code("+".as_bytes());
-        assert_eq!(vec![Inst::Inc], code.unwrap());
+        assert_eq!(vec![Inc], code.unwrap());
     }
 
     #[test]
     fn test_inc_and_dec() {
         let mut vm = Vm::new(1, "".as_bytes()).unwrap();
 
-        vm.eval(&[Inst::Inc, Inst::Inc, Inst::Dec]);
+        vm.eval(&[Inc, Inc, Dec]);
         assert_eq!(vec![1], vm.memory);
     }
 
@@ -125,15 +140,41 @@ mod test {
     fn test_next_and_prev() {
         let mut vm = Vm::new(2, "".as_bytes()).unwrap();
 
-        vm.eval(&[Inst::Next, Inst::Inc, Inst::Prev, Inst::Inc]);
+        vm.eval(&[Next, Inc, Prev, Inc]);
         assert_eq!(vec![1, 1], vm.memory);
+    }
+
+    #[test]
+    fn cant_move_beyond_end_of_memory() {
+        let mut vm = Vm::new(1, "".as_bytes()).unwrap();
+        let code = &[Next, Inc];
+
+        vm.eval(code);
+        assert_eq!(vec![1], vm.memory);
+    }
+
+    #[test]
+    fn test_input() {
+        let mut vm = Vm::new(2, "\u{01}\u{10}".as_bytes()).unwrap();
+
+        vm.eval(&[Input, Next, Input]);
+        assert_eq!(vec![0x1, 0x10], vm.memory);
+    }
+
+    #[test]
+    fn read_end_of_input_set_cell_to_zero() {
+        let mut vm = Vm::new(1, "\u{01}".as_bytes()).unwrap();
+        let code = &[Input, Input];
+
+        vm.eval(code);
+        assert_eq!(vec![0], vm.memory);
     }
 
     #[test]
     fn integer_arithmetic_wraps_around() {
         let mut code = vec![];
         for _ in 0..256 {
-            code.push(Inst::Inc);
+            code.push(Inc);
         }
         let mut vm = Vm::new(1, "".as_bytes()).unwrap();
 
