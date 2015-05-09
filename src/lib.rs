@@ -1,11 +1,12 @@
 use std::io::Read;
+use std::io::Write;
 use std::io::Result;
 
 
 const INC: u8 = 43; // +
 const INPUT: u8 = 44; // ,
 const DEC: u8 = 45; // -
-// const OUTPUT: u8 = 46; // .
+const OUTPUT: u8 = 46; // .
 const PREV: u8 = 60; // <
 const NEXT: u8 = 62; // >
 // const LOOP_BEG: u8 = 91; // [
@@ -19,19 +20,21 @@ pub enum Inst {
     Next,
     Prev,
     Input,
+    Output,
 }
 
 #[derive(Debug)]
-pub struct Vm<In> {
+pub struct Vm<In, Out> {
     memory: Vec<i8>,
     pointer: usize,
     input: In,
+    output: Out,
 }
 
-impl<In: Read> Vm<In> {
-    pub fn new(size: usize, input: In) -> Option<Vm<In>> {
+impl<In: Read, Out: Write> Vm<In, Out> {
+    pub fn new(size: usize, input: In, output: Out) -> Option<Vm<In, Out>> {
         if size > 0 {
-            Some(Vm { memory: vec![0; size], pointer: 0, input: input })
+            Some(Vm { memory: vec![0; size], pointer: 0, input: input, output: output })
         } else {
             None
         }
@@ -49,6 +52,7 @@ impl<In: Read> Vm<In> {
                 &Inst::Next => self.next_cell(),
                 &Inst::Prev => self.prev_cell(),
                 &Inst::Input => self.read_cell(),
+                &Inst::Output => self.write_cell(),
             }
 
             pc += 1;
@@ -86,6 +90,11 @@ impl<In: Read> Vm<In> {
         self.put_cell(i[0] as i8);
     }
 
+    fn write_cell(&mut self) {
+        let o: &[u8] = &[self.get_cell() as u8];
+        self.output.write(o).unwrap();
+    }
+
     fn get_cell(&self) -> i8 {
         self.memory[self.pointer]
     }
@@ -105,6 +114,7 @@ pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>> {
             NEXT => code.push(Inst::Next),
             PREV => code.push(Inst::Prev),
             INPUT => code.push(Inst::Input),
+            OUTPUT => code.push(Inst::Output),
             _ => continue,
         }
     }
@@ -116,7 +126,7 @@ pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>> {
 mod test {
 
     use super::*;
-    use super::Inst::{Inc,Dec,Next,Prev,Input};
+    use super::Inst::{Inc,Dec,Next,Prev,Input,Output};
 
     // TODO: define assert_vm_memory_eq!
     // TODO: define make_vm(usize) -> Vm<?!?>: empty input from string
@@ -130,7 +140,8 @@ mod test {
 
     #[test]
     fn test_inc_and_dec() {
-        let mut vm = Vm::new(1, "".as_bytes()).unwrap();
+        let mut output = Vec::new();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
 
         vm.eval(&[Inc, Inc, Dec]);
         assert_eq!(vec![1], vm.memory);
@@ -138,7 +149,8 @@ mod test {
 
     #[test]
     fn test_next_and_prev() {
-        let mut vm = Vm::new(2, "".as_bytes()).unwrap();
+        let mut output = Vec::new();
+        let mut vm = Vm::new(2, "".as_bytes(), &mut output).unwrap();
 
         vm.eval(&[Next, Inc, Prev, Inc]);
         assert_eq!(vec![1, 1], vm.memory);
@@ -146,7 +158,8 @@ mod test {
 
     #[test]
     fn cant_move_beyond_end_of_memory() {
-        let mut vm = Vm::new(1, "".as_bytes()).unwrap();
+        let mut output = Vec::new();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
         let code = &[Next, Inc];
 
         vm.eval(code);
@@ -155,7 +168,8 @@ mod test {
 
     #[test]
     fn test_input() {
-        let mut vm = Vm::new(2, "\u{01}\u{10}".as_bytes()).unwrap();
+        let mut output = Vec::new();
+        let mut vm = Vm::new(2, "\u{01}\u{10}".as_bytes(), &mut output).unwrap();
 
         vm.eval(&[Input, Next, Input]);
         assert_eq!(vec![0x1, 0x10], vm.memory);
@@ -163,11 +177,23 @@ mod test {
 
     #[test]
     fn read_end_of_input_set_cell_to_zero() {
-        let mut vm = Vm::new(1, "\u{01}".as_bytes()).unwrap();
+        let mut output = Vec::new();
+        let mut vm = Vm::new(1, "\u{01}".as_bytes(), &mut output).unwrap();
         let code = &[Input, Input];
 
         vm.eval(code);
         assert_eq!(vec![0], vm.memory);
+    }
+
+    #[test]
+    fn test_output() {
+        let mut output = Vec::new();
+        {
+            let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+            let code = &[Output, Inc, Output];
+            vm.eval(code);
+        }
+        assert_eq!(vec![0, 1], output);
     }
 
     #[test]
@@ -176,7 +202,8 @@ mod test {
         for _ in 0..256 {
             code.push(Inc);
         }
-        let mut vm = Vm::new(1, "".as_bytes()).unwrap();
+        let mut output = Vec::new();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
 
         vm.eval(&code);
         assert_eq!(0, vm.memory[0]);
