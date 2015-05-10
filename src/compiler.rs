@@ -83,4 +83,11 @@ mod test {
         let code = compiler.compile().unwrap();
         assert_eq!(vec![JumpIfZero(2), JumpUnlessZero(1)], code);
     }
+
+    #[test]
+    fn foo() {
+        let compiler = Compiler::new("+[-]".as_bytes());
+        let code = compiler.compile().unwrap();
+        assert_eq!(vec![Inc, JumpIfZero(4), Dec, JumpUnlessZero(2)], code);
+    }
 }

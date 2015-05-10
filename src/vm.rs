@@ -44,8 +44,18 @@ impl<In: Read, Out: Write> Vm<In, Out> {
                 &Inst::Prev => self.prev_cell(),
                 &Inst::Input => self.read_cell(),
                 &Inst::Output => self.write_cell(),
-                &Inst::JumpIfZero(addr) => { pc = addr; continue; }
-                &Inst::JumpUnlessZero(addr) => { pc = addr; continue; }
+                &Inst::JumpIfZero(addr) => {
+                    if self.get_cell() == 0 {
+                        pc = addr;
+                        continue;
+                    }
+                }
+                &Inst::JumpUnlessZero(addr) => {
+                    if self.get_cell() != 0 {
+                        pc = addr;
+                        continue;
+                    }
+                }
             }
 
             pc += 1;
@@ -84,6 +94,7 @@ impl<In: Read, Out: Write> Vm<In, Out> {
     }
 
     fn write_cell(&mut self) {
+        // TODO: null bytes shouldn't be written
         let o: &[u8] = &[self.get_cell() as u8];
         self.output.write(o).unwrap();
     }
@@ -185,6 +196,16 @@ mod test {
         let mut output = Vec::new();
         let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
         let code = &[JumpIfZero(2), JumpUnlessZero(1)];
+
+        vm.eval(code);
+        assert_eq!(vec![0], vm.memory);
+    }
+
+    #[test]
+    fn loop_is_working_properly() {
+        let mut output = Vec::new();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+        let code = &[Inc, JumpIfZero(4), Dec, JumpUnlessZero(2)];
 
         vm.eval(code);
         assert_eq!(vec![0], vm.memory);
