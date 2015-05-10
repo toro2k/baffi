@@ -10,6 +10,8 @@ pub enum Inst {
     Prev,
     Input,
     Output,
+    JumpIfZero(usize),
+    JumpUnlessZero(usize),
 }
 
 #[derive(Debug)]
@@ -42,6 +44,8 @@ impl<In: Read, Out: Write> Vm<In, Out> {
                 &Inst::Prev => self.prev_cell(),
                 &Inst::Input => self.read_cell(),
                 &Inst::Output => self.write_cell(),
+                &Inst::JumpIfZero(addr) => { pc = addr; continue; }
+                &Inst::JumpUnlessZero(addr) => { pc = addr; continue; }
             }
 
             pc += 1;
@@ -98,7 +102,7 @@ impl<In: Read, Out: Write> Vm<In, Out> {
 mod test {
 
     use super::*;
-    use super::Inst::{Inc,Dec,Next,Prev,Input,Output};
+    use super::Inst::*;
 
     // TODO: define assert_vm_memory_eq!
     // TODO: define make_vm(usize) -> Vm<?!?>: empty input from string
@@ -173,5 +177,16 @@ mod test {
 
         vm.eval(&code);
         assert_eq!(0, vm.memory[0]);
+    }
+
+    #[test]
+    fn an_empty_loop_doesnt_do_anything() {
+        // See compiler::test::compile_empty_loop()
+        let mut output = Vec::new();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+        let code = &[JumpIfZero(2), JumpUnlessZero(1)];
+
+        vm.eval(code);
+        assert_eq!(vec![0], vm.memory);
     }
 }
