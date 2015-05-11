@@ -14,54 +14,41 @@ const LOOP_BEG: u8 = 91; // [
 const LOOP_END: u8 = 93; // ]
 
 
-// TODO: remove Compiler? It doesn't seem to pay its price as things stans now.
-pub fn read_and_strip_bf_code<T: Read>(input: T) -> Result<Vec<Inst>> {
-    let compiler = Compiler::new(input);
-    compiler.compile()
-}
+pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>> {
+    let mut code = vec![];
+    let mut counter = 0;
+    let mut loop_stack = vec![];
 
-pub struct Compiler<In: Read> {
-    input: In,
-}
+    for maybe_byte in input.bytes() {
+        let byte = try!(maybe_byte);
+        match byte {
+            INC => code.push(Inst::Inc),
+            DEC => code.push(Inst::Dec),
+            NEXT => code.push(Inst::Next),
+            PREV => code.push(Inst::Prev),
+            INPUT => code.push(Inst::Input),
+            OUTPUT => code.push(Inst::Output),
 
-impl<In: Read> Compiler<In> {
-    pub fn new(input: In) -> Compiler<In> {
-        Compiler { input: input }
-    }
+            LOOP_BEG => {
+                loop_stack.push(counter);
+                code.push(Inst::JumpIfZero(0));
+            },
 
-    pub fn compile(self) -> Result<Vec<Inst>> {
-        let mut code = vec![];
-        let mut counter = 0;
-        let mut loop_stack = vec![];
+            LOOP_END => {
+                // TODO: loop_stack may be empty -> unmatched brackets
+                let matching_bracket_counter = loop_stack.pop().unwrap();
+                code.push(Inst::JumpUnlessZero(matching_bracket_counter + 1));
+                code[matching_bracket_counter] = Inst::JumpIfZero(counter + 1);
+            },
 
-        for maybe_byte in self.input.bytes() {
-            let byte = try!(maybe_byte);
-            match byte {
-                INC => code.push(Inst::Inc),
-                DEC => code.push(Inst::Dec),
-                NEXT => code.push(Inst::Next),
-                PREV => code.push(Inst::Prev),
-                INPUT => code.push(Inst::Input),
-                OUTPUT => code.push(Inst::Output),
-
-                LOOP_BEG => {
-                    loop_stack.push(counter);
-                    code.push(Inst::JumpIfZero(0));
-                },
-
-                LOOP_END => {
-                    // loop_stack may be empty -> unmatched brackets
-                    let matching_bracket_counter = loop_stack.pop().unwrap();
-                    code.push(Inst::JumpUnlessZero(matching_bracket_counter + 1));
-                    code[matching_bracket_counter] = Inst::JumpIfZero(counter + 1);
-                },
-
-                _ => counter -= 1,
-            }
-            counter += 1;
+            _ => {
+                // FIXME: here crashes if the program start with a non command byte
+                counter -= 1;
+            },
         }
-        Ok(code)
+        counter += 1;
     }
+    Ok(code)
 }
 
 #[cfg(test)]
@@ -72,22 +59,19 @@ mod test {
 
     #[test]
     fn compile_simple_instructions() {
-        let compiler = Compiler::new("+-><,.".as_bytes());
-        let code = compiler.compile().unwrap();
+        let code = compile_bf("+-><,.".as_bytes()).unwrap();
         assert_eq!(vec![Inc, Dec, Next, Prev, Input, Output], code);
     }
 
     #[test]
     fn compile_empty_loop() {
-        let compiler = Compiler::new("[]".as_bytes());
-        let code = compiler.compile().unwrap();
+        let code = compile_bf("[]".as_bytes()).unwrap();
         assert_eq!(vec![JumpIfZero(2), JumpUnlessZero(1)], code);
     }
 
     #[test]
     fn foo() {
-        let compiler = Compiler::new("+[-]".as_bytes());
-        let code = compiler.compile().unwrap();
+        let code = compile_bf("+[-]".as_bytes()).unwrap();
         assert_eq!(vec![Inc, JumpIfZero(4), Dec, JumpUnlessZero(2)], code);
     }
 }
