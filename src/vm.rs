@@ -63,13 +63,11 @@ impl<In: Read, Out: Write> Vm<In, Out> {
     }
 
     fn inc_cell(&mut self) {
-        let v = self.get_cell();
-        self.put_cell(v.wrapping_add(1));
+        self.memory[self.pointer] += 1;
     }
 
     fn dec_cell(&mut self) {
-        let v = self.get_cell();
-        self.put_cell(v.wrapping_sub(1));
+        self.memory[self.pointer] -= 1;
     }
 
     fn next_cell(&mut self) {
@@ -175,19 +173,6 @@ mod test {
             vm.eval(code);
         }
         assert_eq!(vec![0, 1], output);
-    }
-
-    #[test]
-    fn integer_arithmetic_wraps_around() {
-        let mut code = vec![];
-        for _ in 0..256 {
-            code.push(Inc);
-        }
-        let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
-
-        vm.eval(&code);
-        assert_eq!(0, vm.memory[0]);
     }
 
     #[test]
