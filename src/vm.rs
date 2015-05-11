@@ -16,7 +16,7 @@ pub enum Inst {
 
 #[derive(Debug)]
 pub struct Vm<In, Out> {
-    memory: Vec<i8>,
+    memory: Vec<u8>,
     pointer: usize,
     input: In,
     output: Out,
@@ -90,20 +90,20 @@ impl<In: Read, Out: Write> Vm<In, Out> {
         // TODO: where the literal `[0]` is allocated here?
         let i: &mut [u8] = &mut [0];
         self.input.read(&mut i[0..1]).unwrap();
-        self.put_cell(i[0] as i8);
+        self.put_cell(i[0]);
     }
 
     fn write_cell(&mut self) {
         // TODO: null bytes shouldn't be written
-        let o: &[u8] = &[self.get_cell() as u8];
+        let o: &[u8] = &[self.get_cell()];
         self.output.write(o).unwrap();
     }
 
-    fn get_cell(&self) -> i8 {
+    fn get_cell(&self) -> u8 {
         self.memory[self.pointer]
     }
 
-    fn put_cell(&mut self, value: i8) {
+    fn put_cell(&mut self, value: u8) {
         self.memory[self.pointer] = value;
     }
 }
