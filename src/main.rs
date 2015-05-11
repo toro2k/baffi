@@ -21,7 +21,7 @@ pub fn main() {
 fn eval_from_input(input: File) {
     match bf::compiler::read_and_strip_bf_code(input) {
         Ok(code) => {
-            let mut vm = bf::vm::Vm::new(10, io::stdin(), io::stdout()).unwrap();
+            let mut vm = bf::vm::Vm::new(30000, io::stdin(), io::stdout()).unwrap();
             vm.eval(&code);
         },
 
