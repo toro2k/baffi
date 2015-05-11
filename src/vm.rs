@@ -92,9 +92,9 @@ impl<In: Read, Out: Write> Vm<In, Out> {
     }
 
     fn write_cell(&mut self) {
-        // TODO: null bytes shouldn't be written
-        let o: &[u8] = &[self.get_cell()];
-        self.output.write(o).unwrap();
+        if self.get_cell() != 0 {
+            self.output.write(&self.memory[self.pointer..1]).unwrap();
+        }
     }
 
     fn get_cell(&self) -> u8 {
@@ -169,10 +169,21 @@ mod test {
         let mut output = Vec::new();
         {
             let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+            let code = &[Inc, Output, Inc, Output];
+            vm.eval(code);
+        }
+        assert_eq!(vec![1, 2], output);
+    }
+
+    #[test]
+    fn null_bytes_arent_sent_to_output() {
+        let mut output = Vec::new();
+        {
+            let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
             let code = &[Output, Inc, Output];
             vm.eval(code);
         }
-        assert_eq!(vec![0, 1], output);
+        assert_eq!(vec![1], output);
     }
 
     #[test]
