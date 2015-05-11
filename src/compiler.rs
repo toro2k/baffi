@@ -21,6 +21,11 @@ pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>> {
 
     for maybe_byte in input.bytes() {
         let byte = try!(maybe_byte);
+
+        if !is_brainfuck_byte(byte) {
+            continue;
+        }
+
         match byte {
             INC => code.push(Inst::Inc),
             DEC => code.push(Inst::Dec),
@@ -41,21 +46,35 @@ pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>> {
                 code[matching_bracket_counter] = Inst::JumpIfZero(counter + 1);
             },
 
-            _ => {
-                // FIXME: here crashes if the program start with a non command byte
-                counter -= 1;
-            },
+            _ => panic!("BUG!"),
+
         }
+
         counter += 1;
     }
     Ok(code)
 }
+
+fn is_brainfuck_byte(byte: u8) -> bool {
+    byte == INC || byte == DEC ||
+    byte == NEXT || byte == PREV ||
+    byte == OUTPUT || byte == INPUT ||
+    byte == LOOP_BEG || byte == LOOP_END
+}
+
 
 #[cfg(test)]
 mod test {
 
     use super::*;
     use vm::Inst::*;
+
+    #[test]
+    fn initial_non_command_characters_doesnt_panic_the_compiler() {
+        // checks I don't do stupid things with the instructions counter!
+        let code = compile_bf("a+".as_bytes()).unwrap();
+        assert_eq!(vec![Inc], code);
+    }
 
     #[test]
     fn compile_simple_instructions() {
