@@ -4,14 +4,14 @@ use std::io::Result;
 use vm::Inst;
 
 
-const INC: u8 = 43; // +
-const INPUT: u8 = 44; // ,
-const DEC: u8 = 45; // -
-const OUTPUT: u8 = 46; // .
-const PREV: u8 = 60; // <
-const NEXT: u8 = 62; // >
-const LOOP_BEG: u8 = 91; // [
-const LOOP_END: u8 = 93; // ]
+const PLUS: u8 = 43; // +
+const COMMA: u8 = 44; // ,
+const MINUS: u8 = 45; // -
+const DOT: u8 = 46; // .
+const LT: u8 = 60; // <
+const GT: u8 = 62; // >
+const LBRACK: u8 = 91; // [
+const RBRACK: u8 = 93; // ]
 
 
 pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>> {
@@ -27,19 +27,19 @@ pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>> {
         }
 
         match byte {
-            INC => code.push(Inst::Inc),
-            DEC => code.push(Inst::Dec),
-            NEXT => code.push(Inst::Next),
-            PREV => code.push(Inst::Prev),
-            INPUT => code.push(Inst::Input),
-            OUTPUT => code.push(Inst::Output),
+            PLUS => code.push(Inst::Inc),
+            MINUS => code.push(Inst::Dec),
+            GT => code.push(Inst::Next),
+            LT => code.push(Inst::Prev),
+            COMMA => code.push(Inst::Input),
+            DOT => code.push(Inst::Output),
 
-            LOOP_BEG => {
+            LBRACK => {
                 loop_stack.push(counter);
                 code.push(Inst::JumpIfZero(0));
             },
 
-            LOOP_END => {
+            RBRACK => {
                 // TODO: loop_stack may be empty -> unmatched brackets
                 let matching_bracket_counter = loop_stack.pop().unwrap();
                 code.push(Inst::JumpUnlessZero(matching_bracket_counter + 1));
@@ -56,10 +56,10 @@ pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>> {
 }
 
 fn is_brainfuck_byte(byte: u8) -> bool {
-    byte == INC || byte == DEC ||
-    byte == NEXT || byte == PREV ||
-    byte == OUTPUT || byte == INPUT ||
-    byte == LOOP_BEG || byte == LOOP_END
+    byte == PLUS || byte == MINUS ||
+    byte == GT || byte == LT ||
+    byte == DOT || byte == COMMA ||
+    byte == LBRACK || byte == RBRACK
 }
 
 

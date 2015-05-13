@@ -37,20 +37,20 @@ impl<In: Read, Out: Write> Vm<In, Out> {
         while pc < code.len() {
             let cmd = &code[pc];
 
-            match cmd {
-                &Inst::Inc => self.inc_cell(),
-                &Inst::Dec => self.dec_cell(),
-                &Inst::Next => self.next_cell(),
-                &Inst::Prev => self.prev_cell(),
-                &Inst::Input => self.read_cell(),
-                &Inst::Output => self.write_cell(),
-                &Inst::JumpIfZero(addr) => {
+            match *cmd {
+                Inst::Inc => self.inc_cell(),
+                Inst::Dec => self.dec_cell(),
+                Inst::Next => self.next_cell(),
+                Inst::Prev => self.prev_cell(),
+                Inst::Input => self.read_cell(),
+                Inst::Output => self.write_cell(),
+                Inst::JumpIfZero(addr) => {
                     if self.get_cell() == 0 {
                         pc = addr;
                         continue;
                     }
                 }
-                &Inst::JumpUnlessZero(addr) => {
+                Inst::JumpUnlessZero(addr) => {
                     if self.get_cell() != 0 {
                         pc = addr;
                         continue;
