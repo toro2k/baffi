@@ -85,24 +85,15 @@ impl<In: Read, Out: Write> Vm<In, Out> {
 
     fn read_cell(&mut self) {
         // TODO: there is no better/simpler way?
-        // TODO: where the literal `[0]` is allocated here?
-        let i: &mut [u8] = &mut [0];
-        self.input.read(&mut i[0..1]).unwrap();
-        self.put_cell(i[0]);
+        self.input.read(&mut self.memory[self.pointer..self.pointer+1]).unwrap();
     }
 
     fn write_cell(&mut self) {
-        // TODO: null bytes shouldn't be written
-        let o: &[u8] = &[self.get_cell()];
-        self.output.write(o).unwrap();
+        self.output.write(&self.memory[self.pointer..self.pointer+1]).unwrap();
     }
 
     fn get_cell(&self) -> u8 {
         self.memory[self.pointer]
-    }
-
-    fn put_cell(&mut self, value: u8) {
-        self.memory[self.pointer] = value;
     }
 }
 
@@ -155,13 +146,13 @@ mod test {
     }
 
     #[test]
-    fn read_end_of_input_set_cell_to_zero() {
+    fn read_end_of_input_leave_pointed_cell_as_is() {
         let mut output = Vec::new();
-        let mut vm = Vm::new(1, "\u{01}".as_bytes(), &mut output).unwrap();
-        let code = &[Input, Input];
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+        let code = &[Inc, Input];
 
         vm.eval(code);
-        assert_eq!(vec![0], vm.memory);
+        assert_eq!(vec![1], vm.memory);
     }
 
     #[test]
