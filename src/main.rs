@@ -5,7 +5,7 @@ use std::env;
 use std::fs;
 
 use bf::compiler;
-use bf::vm;
+use bf::eval;
 
 
 pub fn main() {
@@ -24,7 +24,7 @@ fn eval_from_input(input: fs::File) {
         Ok(code) => {
             let input = io::stdin();
             let output = io::stdout();
-            let mut vm = vm::Vm::new(MEMORY_SIZE, input, output);
+            let mut vm = eval::Vm::new(MEMORY_SIZE, input, output);
             if let Err(why) = vm.eval(&code) {
                 println!("runtime error: {}", why);
             }

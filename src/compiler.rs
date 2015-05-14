@@ -2,7 +2,7 @@ use std::fmt;
 use std::io;
 use std::io::Read;
 
-use vm::Inst;
+use eval::Inst;
 
 
 pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>, Error> {
@@ -94,7 +94,7 @@ impl fmt::Display for Error {
 mod test {
 
     use super::*;
-    use vm::Inst::*;
+    use eval::Inst::*;
 
     #[test]
     fn compile_simple_instructions() {
