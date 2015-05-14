@@ -67,11 +67,11 @@ impl<In: Read, Out: Write> Vm<In, Out> {
     }
 
     fn inc_cell(&mut self) {
-        self.memory[self.pointer] += 1;
+        self.memory[self.pointer] = self.memory[self.pointer].wrapping_add(1);
     }
 
     fn dec_cell(&mut self) {
-        self.memory[self.pointer] -= 1;
+        self.memory[self.pointer] = self.memory[self.pointer].wrapping_sub(1);
     }
 
     fn next_cell(&mut self) -> Result {
@@ -167,6 +167,26 @@ mod test {
 
         vm.eval(&[Inc, Inc, Dec]).unwrap();
         assert_eq!(vec![1], vm.memory);
+    }
+
+    #[test]
+    fn inc_wraps_around() {
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
+        let mut code = vec![];
+        for _ in 0..256 { code.push(Inc); }
+
+        vm.eval(&code).unwrap();
+        assert_eq!(vec![0], vm.memory);
+    }
+
+    #[test]
+    fn dec_wraps_around() {
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
+        let mut code = vec![];
+        for _ in 0..256 { code.push(Dec); }
+
+        vm.eval(&code).unwrap();
+        assert_eq!(vec![0], vm.memory);
     }
 
     #[test]

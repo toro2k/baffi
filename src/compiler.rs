@@ -52,14 +52,14 @@ pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>, Error> {
 }
 
 
-const PLUS: u8 = 43; // +
-const COMMA: u8 = 44; // ,
-const MINUS: u8 = 45; // -
-const DOT: u8 = 46; // .
-const LT: u8 = 60; // <
-const GT: u8 = 62; // >
-const LBRACK: u8 = 91; // [
-const RBRACK: u8 = 93; // ]
+const PLUS: u8 = 43;
+const COMMA: u8 = 44;
+const MINUS: u8 = 45;
+const DOT: u8 = 46;
+const LT: u8 = 60;
+const GT: u8 = 62;
+const LBRACK: u8 = 91;
+const RBRACK: u8 = 93;
 
 
 #[derive(Debug, PartialEq)]
