@@ -166,17 +166,6 @@ mod test {
     }
 
     #[test]
-    fn null_bytes_arent_sent_to_output() {
-        let mut output = Vec::new();
-        {
-            let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
-            let code = &[Output, Inc, Output];
-            vm.eval(code);
-        }
-        assert_eq!(vec![1], output);
-    }
-
-    #[test]
     fn an_empty_loop_doesnt_do_anything() {
         // See compiler::test::compile_empty_loop()
         let mut output = Vec::new();
