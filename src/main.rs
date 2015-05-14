@@ -2,12 +2,15 @@ extern crate bf;
 
 use std::io;
 use std::env;
-use std::fs::File;
+use std::fs;
+
+use bf::compiler;
+use bf::vm;
 
 
 pub fn main() {
     if let Some(ref file_rel_path) = env::args().nth(1) {
-        match File::open(file_rel_path) {
+        match fs::File::open(file_rel_path) {
             Ok(input) => eval_from_input(input),
             Err(why) => println!("cannot open file: {}", why),
         }
@@ -16,18 +19,20 @@ pub fn main() {
     }
 }
 
-fn eval_from_input(input: File) {
-    match bf::compiler::compile_bf(input) {
+fn eval_from_input(input: fs::File) {
+    match compiler::compile_bf(input) {
         Ok(code) => {
             let input = io::stdin();
             let output = io::stdout();
-            let mut vm = bf::vm::Vm::new(MEMORY_SIZE, input, output);
-            vm.eval(&code);
+            let mut vm = vm::Vm::new(MEMORY_SIZE, input, output);
+            if let Err(why) = vm.eval(&code) {
+                println!("runtime error: {}", why);
+            }
         },
 
-        Err(error) => println!("{}", error),
+        Err(why) => println!("compiler error: {}", why),
     }
 }
 
 
-const MEMORY_SIZE: usize = 30000;
+const MEMORY_SIZE: usize = 65536;

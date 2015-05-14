@@ -1,8 +1,10 @@
+use std::fmt;
+use std::io;
 use std::io::Read;
 use std::io::Write;
+use std::result;
 
 
-#[derive(Debug)]
 pub struct Vm<In, Out> {
     memory: Vec<u8>,
     pointer: usize,
@@ -24,35 +26,44 @@ impl<In: Read, Out: Write> Vm<In, Out> {
         }
     }
 
-    pub fn eval(&mut self, code: &[Inst]) {
-        let mut pc = 0;
+    pub fn eval(&mut self, code: &[Inst]) -> Result {
+        let mut counter = 0;
 
-        while pc < code.len() {
-            let cmd = &code[pc];
+        while counter < code.len() {
+            let cmd = &code[counter];
 
             match *cmd {
                 Inst::Inc => self.inc_cell(),
                 Inst::Dec => self.dec_cell(),
-                Inst::Next => self.next_cell(),
-                Inst::Prev => self.prev_cell(),
-                Inst::Input => self.read_cell(),
-                Inst::Output => self.write_cell(),
+
+                Inst::Next => try!(self.next_cell()),
+                Inst::Prev => try!(self.prev_cell()),
+
+                Inst::Input => try!(self.read_cell()),
+                Inst::Output => try!(self.write_cell()),
+
                 Inst::JumpIfZero(addr) => {
-                    if self.get_cell() == 0 {
-                        pc = addr;
+                    if self.curr_cell_value() == 0 {
+                        counter = addr;
                         continue;
                     }
                 }
                 Inst::JumpUnlessZero(addr) => {
-                    if self.get_cell() != 0 {
-                        pc = addr;
+                    if self.curr_cell_value() != 0 {
+                        counter = addr;
                         continue;
                     }
                 }
             }
 
-            pc += 1;
+            counter += 1;
         }
+
+        Ok(())
+    }
+
+    pub fn into_inner(self) -> (In, Out) {
+        (self.input, self.output)
     }
 
     fn inc_cell(&mut self) {
@@ -63,32 +74,44 @@ impl<In: Read, Out: Write> Vm<In, Out> {
         self.memory[self.pointer] -= 1;
     }
 
-    fn next_cell(&mut self) {
-        // TODO: need a better condition
-        if self.pointer < (self.memory.len() - 1) {
+    fn next_cell(&mut self) -> Result {
+        if self.pointer < self.memory.len()-1 {
             self.pointer += 1;
+            Ok(())
+        } else {
+            Err(RuntimeError::pointer_out_of_bounds())
         }
     }
 
-    fn prev_cell(&mut self) {
+    fn prev_cell(&mut self) -> Result {
         if self.pointer > 0 {
             self.pointer -= 1;
+            Ok(())
+        } else {
+            Err(RuntimeError::pointer_out_of_bounds())
         }
     }
 
-    fn read_cell(&mut self) {
-        self.input.read(&mut self.memory[self.pointer..self.pointer+1]).unwrap();
+    fn read_cell(&mut self) -> Result {
+        let pointer_as_range = self.pointer..self.pointer+1;
+        match self.input.read(&mut self.memory[pointer_as_range]) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(RuntimeError::io_error()),
+        }
     }
 
-    fn write_cell(&mut self) {
-        self.output.write(&self.memory[self.pointer..self.pointer+1]).unwrap();
+    fn write_cell(&mut self) -> Result {
+        let pointer_as_range = self.pointer..self.pointer+1;
+        match self.output.write(&self.memory[pointer_as_range]) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(RuntimeError::io_error()),
+        }
     }
 
-    fn get_cell(&self) -> u8 {
+    fn curr_cell_value(&self) -> u8 {
         self.memory[self.pointer]
     }
 }
-
 
 #[derive(Debug, PartialEq)]
 pub enum Inst {
@@ -102,6 +125,35 @@ pub enum Inst {
     JumpUnlessZero(usize),
 }
 
+pub type Result = result::Result<(), RuntimeError>;
+
+#[derive(Debug, PartialEq)]
+pub struct RuntimeError {
+    description: &'static str,
+}
+
+impl RuntimeError {
+    fn pointer_out_of_bounds() -> RuntimeError {
+        RuntimeError { description: "pointer out of bounds" }
+    }
+
+    fn io_error() -> RuntimeError {
+        RuntimeError { description: "io error" }
+    }
+}
+
+impl From<io::Error> for RuntimeError {
+    fn from(_: io::Error) -> RuntimeError {
+        RuntimeError::io_error()
+    }
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "{}", self.description)
+    }
+}
+
 
 #[cfg(test)]
 mod test {
@@ -109,85 +161,82 @@ mod test {
     use super::*;
     use super::Inst::*;
 
-    // TODO: define assert_vm_memory_eq!
-    // TODO: define make_vm(usize) -> Vm<?!?>: empty input from string
-    // TODO: define make_vm_with_input<In: Read>(usize, In) -> Vm<In>
-
     #[test]
     fn test_inc_and_dec() {
-        let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
 
-        vm.eval(&[Inc, Inc, Dec]);
+        vm.eval(&[Inc, Inc, Dec]).unwrap();
         assert_eq!(vec![1], vm.memory);
     }
 
     #[test]
     fn test_next_and_prev() {
-        let mut output = Vec::new();
-        let mut vm = Vm::new(2, "".as_bytes(), &mut output);
+        let mut vm = Vm::new(2, "".as_bytes(), vec![]);
 
-        vm.eval(&[Next, Inc, Prev, Inc]);
+        vm.eval(&[Next, Inc, Prev, Inc]).unwrap();
         assert_eq!(vec![1, 1], vm.memory);
     }
 
     #[test]
-    fn cant_move_beyond_end_of_memory() {
-        let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
+    fn move_beyond_end_of_memory_is_an_error() {
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
         let code = &[Next, Inc];
 
-        vm.eval(code);
-        assert_eq!(vec![1], vm.memory);
+        let error = vm.eval(code).unwrap_err();
+        assert_eq!(RuntimeError::pointer_out_of_bounds(), error);
+    }
+
+    #[test]
+    fn move_below_begin_of_memory_is_an_error() {
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
+        let code = &[Prev];
+
+        let error = vm.eval(code).unwrap_err();
+        assert_eq!(RuntimeError::pointer_out_of_bounds(), error);
     }
 
     #[test]
     fn test_input() {
-        let mut output = Vec::new();
-        let mut vm = Vm::new(2, "\u{01}\u{10}".as_bytes(), &mut output);
+        let mut vm = Vm::new(2, "\u{01}\u{10}".as_bytes(), vec![]);
 
-        vm.eval(&[Input, Next, Input]);
+        vm.eval(&[Input, Next, Input]).unwrap();
         assert_eq!(vec![0x1, 0x10], vm.memory);
     }
 
     #[test]
     fn read_end_of_input_leave_pointed_cell_as_is() {
-        let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
         let code = &[Inc, Input];
 
-        vm.eval(code);
+        vm.eval(code).unwrap();
         assert_eq!(vec![1], vm.memory);
     }
 
     #[test]
     fn test_output() {
-        let mut output = Vec::new();
-        {
-            let mut vm = Vm::new(1, "".as_bytes(), &mut output);
-            let code = &[Inc, Output, Inc, Output];
-            vm.eval(code);
-        }
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
+        let code = &[Inc, Output, Inc, Output];
+        vm.eval(code).unwrap();
+
+        let (_, output) = vm.into_inner();
         assert_eq!(vec![1, 2], output);
     }
 
     #[test]
     fn an_empty_loop_doesnt_do_anything() {
-        let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
         let code = &[JumpIfZero(2), JumpUnlessZero(1)];
 
-        vm.eval(code);
+        vm.eval(code).unwrap();
         assert_eq!(vec![0], vm.memory);
     }
 
     #[test]
-    fn clear_loop() {
-        let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
+    fn clear_loop_sets_a_cell_to_zero() {
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
         let code = &[Inc, JumpIfZero(4), Dec, JumpUnlessZero(2)];
 
-        vm.eval(code);
+        vm.eval(code).unwrap();
         assert_eq!(vec![0], vm.memory);
     }
 }
