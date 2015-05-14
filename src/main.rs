@@ -19,7 +19,9 @@ pub fn main() {
 fn eval_from_input(input: File) {
     match bf::compiler::compile_bf(input) {
         Ok(code) => {
-            let mut vm = bf::vm::Vm::new(MEMORY_SIZE, io::stdin(), io::stdout()).unwrap();
+            let input = io::stdin();
+            let output = io::stdout();
+            let mut vm = bf::vm::Vm::new(MEMORY_SIZE, input, output);
             vm.eval(&code);
         },
 

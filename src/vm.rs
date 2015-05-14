@@ -2,18 +2,6 @@ use std::io::Read;
 use std::io::Write;
 
 
-#[derive(Debug, PartialEq)]
-pub enum Inst {
-    Inc,
-    Dec,
-    Next,
-    Prev,
-    Input,
-    Output,
-    JumpIfZero(usize),
-    JumpUnlessZero(usize),
-}
-
 #[derive(Debug)]
 pub struct Vm<In, Out> {
     memory: Vec<u8>,
@@ -23,11 +11,16 @@ pub struct Vm<In, Out> {
 }
 
 impl<In: Read, Out: Write> Vm<In, Out> {
-    pub fn new(size: usize, input: In, output: Out) -> Option<Vm<In, Out>> {
+    pub fn new(size: usize, input: In, output: Out) -> Vm<In, Out> {
         if size > 0 {
-            Some(Vm { memory: vec![0; size], pointer: 0, input: input, output: output })
+            Vm {
+                memory: vec![0; size],
+                pointer: 0,
+                input: input,
+                output: output
+            }
         } else {
-            None
+            panic!("memory cannot be empty");
         }
     }
 
@@ -97,6 +90,19 @@ impl<In: Read, Out: Write> Vm<In, Out> {
 }
 
 
+#[derive(Debug, PartialEq)]
+pub enum Inst {
+    Inc,
+    Dec,
+    Next,
+    Prev,
+    Input,
+    Output,
+    JumpIfZero(usize),
+    JumpUnlessZero(usize),
+}
+
+
 #[cfg(test)]
 mod test {
 
@@ -110,7 +116,7 @@ mod test {
     #[test]
     fn test_inc_and_dec() {
         let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
 
         vm.eval(&[Inc, Inc, Dec]);
         assert_eq!(vec![1], vm.memory);
@@ -119,7 +125,7 @@ mod test {
     #[test]
     fn test_next_and_prev() {
         let mut output = Vec::new();
-        let mut vm = Vm::new(2, "".as_bytes(), &mut output).unwrap();
+        let mut vm = Vm::new(2, "".as_bytes(), &mut output);
 
         vm.eval(&[Next, Inc, Prev, Inc]);
         assert_eq!(vec![1, 1], vm.memory);
@@ -128,7 +134,7 @@ mod test {
     #[test]
     fn cant_move_beyond_end_of_memory() {
         let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
         let code = &[Next, Inc];
 
         vm.eval(code);
@@ -138,7 +144,7 @@ mod test {
     #[test]
     fn test_input() {
         let mut output = Vec::new();
-        let mut vm = Vm::new(2, "\u{01}\u{10}".as_bytes(), &mut output).unwrap();
+        let mut vm = Vm::new(2, "\u{01}\u{10}".as_bytes(), &mut output);
 
         vm.eval(&[Input, Next, Input]);
         assert_eq!(vec![0x1, 0x10], vm.memory);
@@ -147,7 +153,7 @@ mod test {
     #[test]
     fn read_end_of_input_leave_pointed_cell_as_is() {
         let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
         let code = &[Inc, Input];
 
         vm.eval(code);
@@ -158,7 +164,7 @@ mod test {
     fn test_output() {
         let mut output = Vec::new();
         {
-            let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+            let mut vm = Vm::new(1, "".as_bytes(), &mut output);
             let code = &[Inc, Output, Inc, Output];
             vm.eval(code);
         }
@@ -167,9 +173,8 @@ mod test {
 
     #[test]
     fn an_empty_loop_doesnt_do_anything() {
-        // See compiler::test::compile_empty_loop()
         let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
         let code = &[JumpIfZero(2), JumpUnlessZero(1)];
 
         vm.eval(code);
@@ -177,9 +182,9 @@ mod test {
     }
 
     #[test]
-    fn loop_is_working_properly() {
+    fn clear_loop() {
         let mut output = Vec::new();
-        let mut vm = Vm::new(1, "".as_bytes(), &mut output).unwrap();
+        let mut vm = Vm::new(1, "".as_bytes(), &mut output);
         let code = &[Inc, JumpIfZero(4), Dec, JumpUnlessZero(2)];
 
         vm.eval(code);
