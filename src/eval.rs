@@ -33,11 +33,11 @@ impl<In: Read, Out: Write> Vm<In, Out> {
             let cmd = &code[counter];
 
             match *cmd {
-                Inst::Inc => self.inc_cell(),
-                Inst::Dec => self.dec_cell(),
+                Inst::Add => self.inc_cell(),
+                Inst::Sub => self.dec_cell(),
 
-                Inst::Next => try!(self.next_cell()),
-                Inst::Prev => try!(self.prev_cell()),
+                Inst::Right => try!(self.next_cell()),
+                Inst::Left => try!(self.prev_cell()),
 
                 Inst::Input => try!(self.read_cell()),
                 Inst::Output => try!(self.write_cell()),
@@ -47,13 +47,16 @@ impl<In: Read, Out: Write> Vm<In, Out> {
                         counter = addr;
                         continue;
                     }
-                }
+                },
+
                 Inst::JumpUnlessZero(addr) => {
                     if self.curr_cell_value() != 0 {
                         counter = addr;
                         continue;
                     }
-                }
+                },
+
+                Inst::Placeholder => panic!("BUG!"),
             }
 
             counter += 1;
@@ -115,14 +118,15 @@ impl<In: Read, Out: Write> Vm<In, Out> {
 
 #[derive(Debug, PartialEq)]
 pub enum Inst {
-    Inc,
-    Dec,
-    Next,
-    Prev,
+    Add,
+    Sub,
+    Right,
+    Left,
     Input,
     Output,
     JumpIfZero(usize),
     JumpUnlessZero(usize),
+    Placeholder,
 }
 
 pub type Result = result::Result<(), RuntimeError>;
@@ -165,7 +169,7 @@ mod test {
     fn test_inc_and_dec() {
         let mut vm = Vm::new(1, "".as_bytes(), vec![]);
 
-        vm.eval(&[Inc, Inc, Dec]).unwrap();
+        vm.eval(&[Add, Add, Sub]).unwrap();
         assert_eq!(vec![1], vm.memory);
     }
 
@@ -173,7 +177,7 @@ mod test {
     fn inc_wraps_around() {
         let mut vm = Vm::new(1, "".as_bytes(), vec![]);
         let mut code = vec![];
-        for _ in 0..256 { code.push(Inc); }
+        for _ in 0..256 { code.push(Add); }
 
         vm.eval(&code).unwrap();
         assert_eq!(vec![0], vm.memory);
@@ -183,7 +187,7 @@ mod test {
     fn dec_wraps_around() {
         let mut vm = Vm::new(1, "".as_bytes(), vec![]);
         let mut code = vec![];
-        for _ in 0..256 { code.push(Dec); }
+        for _ in 0..256 { code.push(Sub); }
 
         vm.eval(&code).unwrap();
         assert_eq!(vec![0], vm.memory);
@@ -193,14 +197,14 @@ mod test {
     fn test_next_and_prev() {
         let mut vm = Vm::new(2, "".as_bytes(), vec![]);
 
-        vm.eval(&[Next, Inc, Prev, Inc]).unwrap();
+        vm.eval(&[Right, Add, Left, Add]).unwrap();
         assert_eq!(vec![1, 1], vm.memory);
     }
 
     #[test]
     fn move_beyond_end_of_memory_is_an_error() {
         let mut vm = Vm::new(1, "".as_bytes(), vec![]);
-        let code = &[Next, Inc];
+        let code = &[Right, Add];
 
         let error = vm.eval(code).unwrap_err();
         assert_eq!(RuntimeError::pointer_out_of_bounds(), error);
@@ -209,7 +213,7 @@ mod test {
     #[test]
     fn move_below_begin_of_memory_is_an_error() {
         let mut vm = Vm::new(1, "".as_bytes(), vec![]);
-        let code = &[Prev];
+        let code = &[Left];
 
         let error = vm.eval(code).unwrap_err();
         assert_eq!(RuntimeError::pointer_out_of_bounds(), error);
@@ -219,14 +223,14 @@ mod test {
     fn test_input() {
         let mut vm = Vm::new(2, "\u{01}\u{10}".as_bytes(), vec![]);
 
-        vm.eval(&[Input, Next, Input]).unwrap();
+        vm.eval(&[Input, Right, Input]).unwrap();
         assert_eq!(vec![0x1, 0x10], vm.memory);
     }
 
     #[test]
     fn read_end_of_input_leave_pointed_cell_as_is() {
         let mut vm = Vm::new(1, "".as_bytes(), vec![]);
-        let code = &[Inc, Input];
+        let code = &[Add, Input];
 
         vm.eval(code).unwrap();
         assert_eq!(vec![1], vm.memory);
@@ -235,7 +239,7 @@ mod test {
     #[test]
     fn test_output() {
         let mut vm = Vm::new(1, "".as_bytes(), vec![]);
-        let code = &[Inc, Output, Inc, Output];
+        let code = &[Add, Output, Add, Output];
         vm.eval(code).unwrap();
 
         let (_, output) = vm.into_inner();
@@ -254,7 +258,7 @@ mod test {
     #[test]
     fn clear_loop_sets_a_cell_to_zero() {
         let mut vm = Vm::new(1, "".as_bytes(), vec![]);
-        let code = &[Inc, JumpIfZero(4), Dec, JumpUnlessZero(2)];
+        let code = &[Add, JumpIfZero(4), Sub, JumpUnlessZero(2)];
 
         vm.eval(code).unwrap();
         assert_eq!(vec![0], vm.memory);

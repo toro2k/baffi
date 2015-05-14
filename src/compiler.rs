@@ -15,18 +15,19 @@ pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>, Error> {
         let byte = try!(maybe_byte);
 
         match byte {
-            PLUS => code.push(Inst::Inc),
-            MINUS => code.push(Inst::Dec),
+            PLUS => code.push(Inst::Add),
+            MINUS => code.push(Inst::Sub),
 
-            GT => code.push(Inst::Next),
-            LT => code.push(Inst::Prev),
+            GT => code.push(Inst::Right),
+            LT => code.push(Inst::Left),
 
             COMMA => code.push(Inst::Input),
             DOT => code.push(Inst::Output),
 
             LBRACK => {
                 loop_stack.push(counter);
-                code.push(Inst::JumpIfZero(0));
+                // I don't know where to jump right now
+                code.push(Inst::Placeholder);
             },
 
             RBRACK => {
@@ -99,7 +100,7 @@ mod test {
     #[test]
     fn compile_simple_instructions() {
         let code = compile_bf("+-><,.".as_bytes()).unwrap();
-        assert_eq!(vec![Inc, Dec, Next, Prev, Input, Output], code);
+        assert_eq!(vec![Add, Sub, Right, Left, Input, Output], code);
     }
 
     #[test]
@@ -111,7 +112,7 @@ mod test {
     #[test]
     fn compile_clear_loop() {
         let code = compile_bf("[-]".as_bytes()).unwrap();
-        assert_eq!(vec![JumpIfZero(0x03), Dec, JumpUnlessZero(0x01)], code);
+        assert_eq!(vec![JumpIfZero(0x03), Sub, JumpUnlessZero(0x01)], code);
     }
 
     #[test]
@@ -130,6 +131,6 @@ mod test {
     fn initial_non_command_characters_doesnt_panic_the_compiler() {
         // checks I don't do stupid things with the instructions counter!
         let code = compile_bf("a+".as_bytes()).unwrap();
-        assert_eq!(vec![Inc], code);
+        assert_eq!(vec![Add], code);
     }
 }
