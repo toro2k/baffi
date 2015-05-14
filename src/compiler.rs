@@ -22,10 +22,6 @@ pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>> {
     for maybe_byte in input.bytes() {
         let byte = try!(maybe_byte);
 
-        if !is_brainfuck_byte(byte) {
-            continue;
-        }
-
         match byte {
             PLUS => code.push(Inst::Inc),
             MINUS => code.push(Inst::Dec),
@@ -46,20 +42,13 @@ pub fn compile_bf<T: Read>(input: T) -> Result<Vec<Inst>> {
                 code[matching_bracket_counter] = Inst::JumpIfZero(counter + 1);
             },
 
-            _ => panic!("BUG!"),
+            _ => continue,
 
         }
 
         counter += 1;
     }
     Ok(code)
-}
-
-fn is_brainfuck_byte(byte: u8) -> bool {
-    byte == PLUS || byte == MINUS ||
-    byte == GT || byte == LT ||
-    byte == DOT || byte == COMMA ||
-    byte == LBRACK || byte == RBRACK
 }
 
 
