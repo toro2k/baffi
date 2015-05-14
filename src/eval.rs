@@ -13,6 +13,7 @@ pub struct Vm<In, Out> {
 }
 
 impl<In: Read, Out: Write> Vm<In, Out> {
+
     pub fn new(size: usize, input: In, output: Out) -> Vm<In, Out> {
         if size > 0 {
             Vm {
@@ -22,7 +23,7 @@ impl<In: Read, Out: Write> Vm<In, Out> {
                 output: output
             }
         } else {
-            panic!("memory cannot be empty");
+            panic!("BUG! Memory cannot be empty");
         }
     }
 
@@ -56,7 +57,7 @@ impl<In: Read, Out: Write> Vm<In, Out> {
                     }
                 },
 
-                Inst::Placeholder => panic!("BUG!"),
+                Inst::Placeholder => panic!("BUG! Placeholder left in code"),
             }
 
             counter += 1;
@@ -262,5 +263,22 @@ mod test {
 
         vm.eval(code).unwrap();
         assert_eq!(vec![0], vm.memory);
+    }
+
+    #[test]
+    #[should_panic]
+    fn an_empty_memory_panics_the_constructor() {
+        Vm::new(0, "".as_bytes(), vec![]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn a_placeholder_instruction_panics_the_vm() {
+        let mut vm = Vm::new(1, "".as_bytes(), vec![]);
+        // I don't want unwrap to panic by mistake here
+        match vm.eval(&[Placeholder]) {
+            Ok(_) => {},
+            Err(_) => {},
+        }
     }
 }
