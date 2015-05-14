@@ -1,6 +1,7 @@
 extern crate bf;
 
 use std::io;
+use std::io::Write;
 use std::env;
 use std::fs;
 
@@ -8,14 +9,25 @@ use bf::compiler;
 use bf::eval;
 
 
+macro_rules! printerrln {
+    ($fmt:expr) => ((
+        writeln!(&mut io::stderr(), $fmt).unwrap()
+    ));
+
+    ($fmt:expr, $($args:tt)*) => ((
+        writeln!(&mut io::stderr(), $fmt, $($args)*).unwrap()
+    ));
+}
+
+
 pub fn main() {
     if let Some(ref file_rel_path) = env::args().nth(1) {
         match fs::File::open(file_rel_path) {
             Ok(input) => eval_from_input(input),
-            Err(why) => println!("cannot open file: {}", why),
+            Err(why) => printerrln!("cannot open file: {}", why),
         }
     } else {
-        println!("missing file path argument");
+        printerrln!("missing file path argument");
     }
 }
 
@@ -26,11 +38,11 @@ fn eval_from_input(input: fs::File) {
             let output = io::stdout();
             let mut vm = eval::Vm::new(MEMORY_SIZE, input, output);
             if let Err(why) = vm.eval(&code) {
-                println!("runtime error: {}", why);
+                printerrln!("runtime error: {}", why);
             }
         },
 
-        Err(why) => println!("compiler error: {}", why),
+        Err(why) => printerrln!("compiler error: {}", why),
     }
 }
 
