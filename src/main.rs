@@ -1,12 +1,12 @@
-extern crate bf;
+extern crate baffi;
 
 use std::io;
 use std::io::Write;
 use std::env;
 use std::fs;
 
-use bf::compiler;
-use bf::eval;
+use baffi::compiler;
+use baffi::eval;
 
 
 macro_rules! printerrln {
