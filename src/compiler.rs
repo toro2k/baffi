@@ -98,19 +98,19 @@ mod test {
     use eval::Inst::*;
 
     #[test]
-    fn compile_simple_instructions() {
+    fn simple_instructions() {
         let code = compile_bf("+-><,.".as_bytes()).unwrap();
         assert_eq!(vec![Add, Sub, Right, Left, Input, Output], code);
     }
 
     #[test]
-    fn compile_empty_loop() {
+    fn empty_loop() {
         let code = compile_bf("[]".as_bytes()).unwrap();
         assert_eq!(vec![JumpIfZero(0x02), JumpUnlessZero(0x01)], code);
     }
 
     #[test]
-    fn compile_clear_loop() {
+    fn clear_loop() {
         let code = compile_bf("[-]".as_bytes()).unwrap();
         assert_eq!(vec![JumpIfZero(0x03), Sub, JumpUnlessZero(0x01)], code);
     }
